@@ -29,7 +29,7 @@ except ImportError:
 
 # Constants / configuration
 ## Filename of the generated index files
-INDEX_FILE_NAME = 'imageme.html'
+INDEX_FILE_NAME = 'index.html'
 ## Regex for matching only image files
 IMAGE_FILE_REGEX = '^.+\.(png|jpg|jpeg|tif|tiff|gif|bmp)$'
 ## Images per row of the gallery tables
