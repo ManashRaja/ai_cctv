@@ -37,7 +37,7 @@ class EmlServer(SMTPServer):
         return (img1, img2, img3)
 
     def detect_faces(self, imgs):
-        image_no = -1
+        image_no = []
         max_detections = 0
         faceCascade = cv2.CascadeClassifier("ml_trained/haarcascade_frontalface_alt.xml")
         for i in range(0, 2):
@@ -51,17 +51,18 @@ class EmlServer(SMTPServer):
             )
             if len(faces) > max_detections:
                 max_detections = len(faces)
-                image_no = i
+                image_no.append(i)
             # Draw a rectangle around the faces
             for (x, y, w, h) in faces:
                 cv2.rectangle(imgs[i], (x, y), (x + w, y + h), (0, 255, 0), 2)
         return image_no
 
     def write_image(self, image_no, imgs):
-        if image_no != -1:
-            filename = 'images/%s-%d.jpg' % (datetime.now().strftime('%Y%m%d%H%M%S'), self.no)
-            cv2.imwrite(filename, imgs[image_no])
-            self.no += 1
+        if len(image_no) > 0:
+            for i in image_no:
+                filename = 'images/%s-%d.jpg' % (datetime.now().strftime('%Y%m%d%H%M%S'), self.no)
+                cv2.imwrite(filename, imgs[i])
+                self.no += 1
 
 
     def process_message(self, peer, mailfrom, rcpttos, data):

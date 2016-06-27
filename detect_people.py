@@ -17,7 +17,7 @@ class DetectPeople(object):
         # load the image and resize it to (1) reduce detection time
         # and (2) improve detection accuracy """
 
-        _image_num = -1
+        _image_num = []
         _max_detections = 0
         for i in range(0, 2):
             image = imgs[i]
@@ -44,7 +44,7 @@ class DetectPeople(object):
             # draw the final bounding boxes
             if len(pick) > _max_detections:
                 _max_detections = len(pick)
-                _image_num = i
+                _image_num.append(i)
                 for (xA, yA, xB, yB) in pick:
                     cv2.rectangle(imgs[i], (xA, yA), (xB, yB), (255, 0, 0), 2)
 
