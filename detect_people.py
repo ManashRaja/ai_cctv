@@ -7,10 +7,10 @@ import cv2
 
 
 class DetectPeople(object):
-    _hog = None
-
     def __init__(self):
-        pass
+        self._hog = cv2.HOGDescriptor()
+        self._hog.setSVMDetector(cv2.HOGDescriptor_getDefaultPeopleDetector())
+        
 
     def detect(self, imgs):
         """ initialize the HOG descriptor/person detector
@@ -18,7 +18,6 @@ class DetectPeople(object):
         # and (2) improve detection accuracy """
 
         _image_num = []
-        _max_detections = 0
         for i in range(0, 2):
             image = imgs[i]
             image = image[25:image.shape[2] - 25, 0:image.shape[1]]
@@ -26,10 +25,8 @@ class DetectPeople(object):
             # orig = image.copy()
 
             # detect people in the image
-            _hog = cv2.HOGDescriptor()
-            _hog.setSVMDetector(cv2.HOGDescriptor_getDefaultPeopleDetector())
-            (rects, weights) = _hog.detectMultiScale(image, winStride=(4, 4),
-                                                     padding=(8, 8), scale=1.05)
+            (rects, weights) = self._hog.detectMultiScale(image, winStride=(4, 4),
+                                                          padding=(8, 8), scale=1.05)
 
             # draw the original bounding boxes
             # for (x, y, w, h) in rects:
@@ -42,11 +39,10 @@ class DetectPeople(object):
             pick = non_max_suppression(rects, probs=None, overlapThresh=0.65)
 
             # draw the final bounding boxes
-            if len(pick) > _max_detections:
-                _max_detections = len(pick)
+            if len(pick) > 0:
                 _image_num.append(i)
                 for (xA, yA, xB, yB) in pick:
-                    cv2.rectangle(imgs[i], (xA, yA), (xB, yB), (255, 0, 0), 2)
+                    cv2.rectangle(imgs[i], (xA, yA + 25), (xB, yB + 25), (255, 0, 0), 2)
 
             # show the output images
             # cv2.imshow("Before NMS", orig)

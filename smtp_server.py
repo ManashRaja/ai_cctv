@@ -38,7 +38,6 @@ class EmlServer(SMTPServer):
 
     def detect_faces(self, imgs):
         image_no = []
-        max_detections = 0
         faceCascade = cv2.CascadeClassifier("ml_trained/haarcascade_frontalface_alt.xml")
         for i in range(0, 2):
             gray = cv2.cvtColor(imgs[i], cv2.COLOR_BGR2GRAY)
@@ -49,8 +48,7 @@ class EmlServer(SMTPServer):
                 minSize=(30, 30),
                 flags=cv2.cv.CV_HAAR_SCALE_IMAGE
             )
-            if len(faces) > max_detections:
-                max_detections = len(faces)
+            if len(faces) > 0:
                 image_no.append(i)
             # Draw a rectangle around the faces
             for (x, y, w, h) in faces:
@@ -81,6 +79,11 @@ class EmlServer(SMTPServer):
         # Detect People
         image_no = self.dp.detect(imgs)
         self.write_image(image_no, imgs)
+
+        '''cv2.imshow("1", imgs[0])
+        cv2.imshow("2", imgs[1])
+        cv2.imshow("3", imgs[2])
+        cv2.waitKey(33)'''
 
 
 def run():
