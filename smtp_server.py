@@ -71,7 +71,7 @@ class EmlServer(SMTPServer):
 
 def run():
     print "Running"
-    server = EmlServer(('192.168.0.100', 587), None)
+    server = EmlServer(('0.0.0.0', 587), None)
     for x in range(1):
         data_worker = multi_threading.DataWorker(server)
         # Setting daemon to True will let the main thread exit even though the
