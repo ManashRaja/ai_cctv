@@ -2,7 +2,7 @@
 
 import os
 from flask import Flask, Response, request, abort, render_template_string, send_from_directory
-import Image
+from PIL import Image
 import StringIO
 
 app = Flask(__name__)
