@@ -8,10 +8,22 @@ class DataWorker(Thread):
 
     def run(self):
         while True:
-            data = self.server.data_queue.get()
-            imgs = self.server.decode_imges(data)
-            for i in range(3):
-                self.server.img_queue.put(imgs[i])
+            mailfrom, data = self.server.data_queue.get()
+            ret, user_data = self.server.get_user_info(mailfrom)
+
+            self.server.debug_print("Received user_data: " + str(user_data))
+
+            user_data["camera"] = self.server.get_camera(data, user_data)
+            self.server.debug_print(ret)
+            self.server.debug_print(user_data["configured"] == 1)
+            ret_time = self.server.within_time_period(user_data)
+
+            if (ret and user_data["configured"] == 1 and ret_time):
+                self.server.debug_print("cleared to process")
+                imgs = self.server.decode_images(user_data, data)
+                for i in range(len(imgs)):
+                    self.server.img_queue.put((user_data, imgs[i]))
+            self.server.debug_print("dataworker done")
             self.server.data_queue.task_done()
 
 
@@ -22,7 +34,7 @@ class ImgWorker(Thread):
 
     def run(self):
         while True:
-            img = self.server.img_queue.get()
+            user_data, img = self.server.img_queue.get()
             ret = self.server.detect_faces(img)
             if ret:
                 self.server.write_image(img)
