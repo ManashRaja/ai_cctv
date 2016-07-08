@@ -45,23 +45,23 @@ class EmlServer(SMTPServer):
         try:
             conn = MySQLdb.connect(host="manashpratim.in", user='manashpr_python', passwd='sqldb@Security', db='manashpr_cctvmails', port=3306)
             cur = conn.cursor()
-            exec_string = "SELECT * FROM settings WHERE `uniqueemail` = '%s'" % mailfrom
+            exec_string = "SELECT * FROM user_settings WHERE `uniqueEmail` = '%s'" % mailfrom
             count = cur.execute(exec_string)
             if (count > 0):
                 ret = True
                 data = cur.fetchall()
                 # print the rows
                 for row in data:
-                    user_data["reg_email"] = row[1]
-                    user_data["unique_email"] = row[2]
-                    user_data["username"] = row[3]
-                    user_data["pss"] = row[4]
+                    user_data["username"] = row[1]
+                    user_data["pss"] = row[2]
+                    user_data["reg_email"] = row[3]
+                    user_data["unique_email"] = row[4]
                     user_data["configs"] = json.loads(row[5])
                     user_data["rules"] = json.loads(row[6])
                     user_data["configured"] = row[7]
-                    # user_data["to_email"] = row[8]
-                    # user_data["gdrive"] = row[9]
-                    # user_data["dropbox"] = row[10]
+                    user_data["to_email"] = row[8]
+                    user_data["gdrive"] = row[9]
+                    user_data["dropbox"] = row[10]
             cur.close()
             conn.close()
         except MySQLdb.Error, e:
@@ -70,7 +70,7 @@ class EmlServer(SMTPServer):
 
     def within_time_period(self, user_data):
         for i in range(len(user_data["rules"])):
-            if user_data["rules"][str(i)]["camera"] == user_data["camera"]:
+            if user_data["rules"][str(i)]["camera"] == user_data["configs"]["Camera Identifier"][user_data["camera"]]:
                 time_periods = user_data["rules"][str(i)]["time_periods"].split(',')
                 for time_period in time_periods:
                     time_pairs = time_period.split('-')
@@ -102,7 +102,7 @@ class EmlServer(SMTPServer):
     def decode_images(self, user_data, data):
         data = data.replace('\n', '')
         camera_name = user_data["camera"]
-        image_strings = re.findall(user_data["configs"]["Image Regex"], data)  # "base64([^#]+)--#BOUNDARY"
+        image_strings = re.findall(user_data["configs"]["Image Regex"], data)
         imgs = []
         number_of_images = len(image_strings)
         for i in range(number_of_images):
