@@ -22,7 +22,7 @@ class DataWorker(Thread):
                 self.server.debug_print("cleared to process")
                 imgs = self.server.decode_images(user_data, data)
                 user_data["diff_rect"] = None
-                if len(imgs) > 0:
+                if len(imgs) > 2:
                     user_data["diff_rect"] = self.server.get_motion_areas(imgs)
                 for i in range(len(imgs)):
                     self.server.img_queue.put((user_data, imgs[i]))

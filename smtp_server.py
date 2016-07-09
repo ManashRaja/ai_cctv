@@ -60,10 +60,10 @@ class EmlServer(SMTPServer):
         return ret_rect
 
     def get_motion_areas(self, imgs):
-        first_image = imgs[0]
-        img_diff = np.array((first_image.shape[0], first_image.shape[1]), np.uint8)
-        for i in range(1, len(imgs)):
-            img_diff = cv2.add(img_diff, cv2.subtract(first_image, imgs[i]))
+        img_diff = cv2.subtract(imgs[0], imgs[1])
+        for i in range(2, len(imgs)):
+            img_diff2 = cv2.subtract(imgs[0], imgs[i])
+            img_diff = cv2.add(img_diff, img_diff2)
         img_diff = cv2.cvtColor(img_diff, cv2.COLOR_BGR2GRAY)
         img_diff = cv2.erode(img_diff, np.ones((9, 9)))
         (thresh, img_diff) = cv2.threshold(img_diff, 128, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
