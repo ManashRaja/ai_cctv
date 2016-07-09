@@ -21,6 +21,9 @@ class DataWorker(Thread):
             if (ret and user_data["configured"] == 1 and ret_time):
                 self.server.debug_print("cleared to process")
                 imgs = self.server.decode_images(user_data, data)
+                user_data["diff_rect"] = None
+                if len(imgs) > 0:
+                    user_data["diff_rect"] = self.server.get_motion_areas(imgs)
                 for i in range(len(imgs)):
                     self.server.img_queue.put((user_data, imgs[i]))
             self.server.debug_print("dataworker done")
@@ -35,10 +38,10 @@ class ImgWorker(Thread):
     def run(self):
         while True:
             user_data, img = self.server.img_queue.get()
-            ret = self.server.detect_faces(img)
+            ret = self.server.detect_faces(img, user_data["diff_rect"])
             if ret:
                 self.server.write_image(img)
-            ret = self.server.dp.detect(img)
+            ret = self.server.dp.detect(img, user_data["diff_rect"])
             if ret:
                 self.server.write_image(img)
             self.server.img_queue.task_done()

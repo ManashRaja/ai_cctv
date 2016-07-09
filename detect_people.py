@@ -10,8 +10,16 @@ class DetectPeople(object):
         self._hog = cv2.HOGDescriptor()
         self._hog.setSVMDetector(cv2.HOGDescriptor_getDefaultPeopleDetector())
 
+    def rect_intersect(self, a, b):
+        x = max(a[0], b[0])
+        y = max(a[1], b[1])
+        w = min(a[0] + a[2], b[0] + b[2]) - x
+        h = min(a[1] + a[3], b[1] + b[3]) - y
+        if w < 0 or h < 0:
+            return False
+        return True
 
-    def detect(self, img):
+    def detect(self, img, diff_rect):
         """ initialize the HOG descriptor/person detector
         # load the image and resize it to (1) reduce detection time
         # and (2) improve detection accuracy """
@@ -39,5 +47,7 @@ class DetectPeople(object):
         if len(pick) > 0:
             for (xA, yA, xB, yB) in pick:
                 cv2.rectangle(img, (xA, yA + 25), (xB, yB + 25), (255, 0, 0), 2)
+                if self.rect_intersect((xA, yA + 25, xB, yB + 25), diff_rect):
+                    cv2.rectangle(img, (xA, yA + 25), (xB, yB + 25), (0, 0, 0), 2)
             bool_detected = True
         return bool_detected

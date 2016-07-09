@@ -39,6 +39,37 @@ class EmlServer(SMTPServer):
         if self.debug:
             print minput
 
+    def crop_area(self, image, threshold=0):
+        ret_rect = (0, 0, image.shape[0], image.shape[1])
+        if len(image.shape) == 3:
+            flatImage = np.max(image, 2)
+        else:
+            flatImage = image
+        assert len(flatImage.shape) == 2
+
+        rows = np.where(np.max(flatImage, 0) > threshold)[0]
+        if rows.size:
+            cols = np.where(np.max(flatImage, 1) > threshold)[0]
+            # image = image[cols[0]: cols[-1] + 1, rows[0]: rows[-1] + 1]
+            percentage = 0.1
+            xa = rows[0] - int(image.shape[0] * percentage)
+            ya = cols[0] - int(image.shape[1] * percentage)
+            xb = rows[-1] + 1 + int(image.shape[0] * percentage)
+            yb = cols[-1] + 1 + int(image.shape[1] * percentage)
+            ret_rect = (xa, ya, xb, yb)
+        return ret_rect
+
+    def get_motion_areas(self, imgs):
+        first_image = imgs[0]
+        img_diff = np.array((first_image.shape[0], first_image.shape[1]), np.uint8)
+        for i in range(1, len(imgs)):
+            img_diff = cv2.add(img_diff, cv2.subtract(first_image, imgs[i]))
+        img_diff = cv2.cvtColor(img_diff, cv2.COLOR_BGR2GRAY)
+        img_diff = cv2.erode(img_diff, np.ones((9, 9)))
+        (thresh, img_diff) = cv2.threshold(img_diff, 128, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
+        diff_rect = self.crop_area(img_diff)
+        return diff_rect
+
     def get_user_info(self, mailfrom):
         ret = False
         user_data = {}
@@ -124,7 +155,16 @@ class EmlServer(SMTPServer):
             self.raw += 1
         return imgs
 
-    def detect_faces(self, img):
+    def rect_intersect(self, a, b):
+        x = max(a[0], b[0])
+        y = max(a[1], b[1])
+        w = min(a[0] + a[2], b[0] + b[2]) - x
+        h = min(a[1] + a[3], b[1] + b[3]) - y
+        if w < 0 or h < 0:
+            return False
+        return True
+
+    def detect_faces(self, img, diff_rect):
         bool_detected = False
         face_cascade = cv2.CascadeClassifier("ml_trained/haarcascade_frontalface_alt.xml")
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
@@ -139,6 +179,8 @@ class EmlServer(SMTPServer):
             # Draw a rectangle around the faces
             for (x, y, w, h) in faces:
                 cv2.rectangle(img, (x, y), (x + w, y + h), (0, 255, 0), 2)
+                if self.rect_intersect((x, y, x + w, y + h), diff_rect):
+                    cv2.rectangle(img, (x, y), (x + w, y + h), (255, 255, 255), 2)
             bool_detected = True
         return bool_detected
 
