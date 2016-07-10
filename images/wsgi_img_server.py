@@ -92,7 +92,8 @@ def index():
             file_paths.append(filename)
             print filename
     file_paths.sort(key=lambda x: os.stat(x).st_mtime, reverse=True)
-    for sorted_filename in file_paths:
+    for i in range(min(len(file_paths), 60)):
+        sorted_filename = file_paths[i]
         im = Image.open(sorted_filename)
         w, h = im.size
         aspect = 1.0*w/h

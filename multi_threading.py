@@ -1,3 +1,5 @@
+import uuid
+from time import strftime
 from threading import Thread
 
 
@@ -20,6 +22,7 @@ class DataWorker(Thread):
 
             if (ret and user_data["configured"] == 1 and ret_time):
                 self.server.debug_print("cleared to process")
+                user_data["id"] = uuid.uuid4()
                 imgs = self.server.decode_images(user_data, data)
                 user_data["diff_rect"] = None
                 if len(imgs) > 2:
@@ -38,10 +41,31 @@ class ImgWorker(Thread):
     def run(self):
         while True:
             user_data, img = self.server.img_queue.get()
-            ret = self.server.detect_faces(img, user_data["diff_rect"])
-            if ret:
-                self.server.write_image(img)
-            ret = self.server.dp.detect(img, user_data["diff_rect"])
-            if ret:
-                self.server.write_image(img)
+            user_data["detected"] = []
+            action_required = False
+            if ("People" in user_data["detections"]):
+                ret = self.server.detect_faces(img, user_data["diff_rect"])
+                if ret:
+                    self.server.write_image(img)
+                ret = self.server.dp.detect(img, user_data["diff_rect"])
+                if ret:
+                    self.server.write_image(img)
+                    action_required = True
+                    user_data["detected"].append("People")
+            if action_required and user_data["id"] in self.server.image_dict:
+                user_data["event_time"] = strftime("%d-%h-%Y %I:%M:%S%p")
+                self.server.action_queue.put(user_data)
             self.server.img_queue.task_done()
+
+
+class ActionWorker(Thread):
+    def __init__(self, server):
+        super(ActionWorker, self).__init__()
+        self.server = server
+
+    def run(self):
+        while True:
+            user_data = self.server.action_queue.get()
+            if ("Email" in user_data["actions"] and user_data["to_email"] != ""):
+                self.server.send_email_alert(user_data)
+            self.server.action_queue.task_done()
