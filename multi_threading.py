@@ -53,11 +53,13 @@ class ImgWorker(Thread):
                     self.server.write_image(img)
                     action_required = True
                     user_data["detected"].append("People")
+                    self.server.debug_print("People detected")
             if action_required:
                 user_data["event_time"] = strftime("%d-%h-%Y %I:%M:%S%p")
                 self.server.action_queue.put(user_data)
                 if ("GDrive" in user_data["actions"] and user_data["gdrive"] != ""):
                     user_data["cvimage"] = img
+                self.server.debug_print("Action Required")
             self.server.img_queue.task_done()
 
 
@@ -71,13 +73,16 @@ class ActionWorker(Thread):
             user_data = self.server.action_queue.get()
             if ("Email" in user_data["actions"] and user_data["to_email"] != "") and user_data["id"] in self.server.image_dict:
                 self.server.send_email_alert(user_data)
+                self.server.debug_print("Sent Email")
             if ("GDrive" in user_data["actions"] and user_data["gdrive"] != ""):
                 home_dir = os.path.expanduser('~')
                 img_dir = os.path.join(home_dir, '.cctvmails_temp', '.images')
-                file_name = user_data["id"]
+                file_name = user_data["event_time"] + ".jpg"
                 self.server.write_image(user_data["cvimage"], img_dir, file_name)
                 self.server.GDrive.upload_image(user_data, os.path.join(img_dir, file_name))
                 os.remove(os.path.join(img_dir, file_name))
+                self.server.debug_print("Uploaded to Google Drive")
             if user_data["id"] in self.server.image_dict:
                 del self.server.image_dict[user_data["id"]]
+            self.server.debug_print("Action worker done")
             self.server.action_queue.task_done()

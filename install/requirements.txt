@@ -2,3 +2,4 @@ numpy
 Pillow
 imutils
 Flask
+--upgrade google-api-python-client

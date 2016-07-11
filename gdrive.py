@@ -21,6 +21,7 @@ upload files to cctvmails/date
 # CLIENT_SECRET_FILE = 'client_secret.json'
 # APPLICATION_NAME = 'cctvmails'
 
+
 class GDrive(object):
     def __init__(self):
         pass
@@ -93,9 +94,9 @@ class GDrive(object):
 
     def upload_image(self, user_data, img):
         try:
-            credentials = self._get_credentials()
+            credentials = self._get_credentials(user_data)
             service = self._get_service(credentials)
-            body = {'title': img,
+            body = {'title': os.path.basename(img),
                     'mimeType': "image/jpg"}
 
             date = datetime.now().strftime('%d-%m-%Y')
