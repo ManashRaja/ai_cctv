@@ -1,3 +1,4 @@
+import os
 import uuid
 from time import strftime
 from threading import Thread
@@ -52,9 +53,11 @@ class ImgWorker(Thread):
                     self.server.write_image(img)
                     action_required = True
                     user_data["detected"].append("People")
-            if action_required and user_data["id"] in self.server.image_dict:
+            if action_required:
                 user_data["event_time"] = strftime("%d-%h-%Y %I:%M:%S%p")
                 self.server.action_queue.put(user_data)
+                if ("GDrive" in user_data["actions"] and user_data["gdrive"] != ""):
+                    user_data["cvimage"] = img
             self.server.img_queue.task_done()
 
 
@@ -66,6 +69,15 @@ class ActionWorker(Thread):
     def run(self):
         while True:
             user_data = self.server.action_queue.get()
-            if ("Email" in user_data["actions"] and user_data["to_email"] != ""):
+            if ("Email" in user_data["actions"] and user_data["to_email"] != "") and user_data["id"] in self.server.image_dict:
                 self.server.send_email_alert(user_data)
+            if ("GDrive" in user_data["actions"] and user_data["gdrive"] != ""):
+                home_dir = os.path.expanduser('~')
+                img_dir = os.path.join(home_dir, '.cctvmails_temp', '.images')
+                file_name = user_data["id"]
+                self.server.write_image(user_data["cvimage"], img_dir, file_name)
+                self.server.GDrive.upload_image(user_data, os.path.join(img_dir, file_name))
+                os.remove(os.path.join(img_dir, file_name))
+            if user_data["id"] in self.server.image_dict:
+                del self.server.image_dict[user_data["id"]]
             self.server.action_queue.task_done()

@@ -5,6 +5,7 @@ import json
 import base64
 import MySQLdb
 import asyncore
+import traceback
 import numpy as np
 import ConfigParser
 import multi_threading
@@ -12,6 +13,7 @@ from time import time
 from PIL import Image
 from io import BytesIO
 from Queue import Queue
+from gdrive import GDrive
 from smtpd import SMTPServer
 from datetime import datetime
 from email.utils import formatdate
@@ -27,12 +29,14 @@ class EmlServer(SMTPServer):
         self.no = 0
         self.raw = 0
         self.dp = DetectPeople()
+        self.GDrive = GDrive()
         self.data_queue = Queue()
         self.img_queue = Queue()
         self.action_queue = Queue()
         self.debug = True
         self.image_dict = {}
         self.config = config
+        self.motion_thresh = 15
 
     def send_email_alert(self, user_data):
         try:
@@ -84,9 +88,8 @@ class EmlServer(SMTPServer):
             smtp.login(username, pss)
             smtp.sendmail(send_from, send_to, msg.as_string())
             smtp.close()
-            del self.image_dict[user_data["id"]]
-        except:
-            print "Email Send Error"
+        except Exception as e:
+            print "Email Send Error: " + str(traceback.format_exc())
 
     def get_camera(self, data, user_data):
         data = data.replace('\n', '')
@@ -121,7 +124,7 @@ class EmlServer(SMTPServer):
             ret_rect = (xa, ya, xb, yb)
         return ret_rect
 
-    def img_gray(image):
+    def img_gray(self, image):
         new_image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         return new_image
 
@@ -133,8 +136,7 @@ class EmlServer(SMTPServer):
         # img_diff = cv2.cvtColor(img_diff, cv2.COLOR_BGR2GRAY)
         img_diff = cv2.erode(img_diff, np.ones((9, 9)))
         # (thresh, img_diff) = cv2.threshold(img_diff, 128, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
-        thresh = 25
-        img_diff = cv2.threshold(img_diff, thresh, 255, cv2.THRESH_BINARY)[1]
+        img_diff = cv2.threshold(img_diff, self.motion_thresh, 255, cv2.THRESH_BINARY)[1]
         diff_rect = self.crop_area(img_diff)
         return diff_rect
 
@@ -215,20 +217,20 @@ class EmlServer(SMTPServer):
         for i in range(number_of_images):
             imgs.append(self.readb64(image_strings[i]))
 
-        #mask = None
-        #mask_path = "settings/masks/%s/%s.jpg" % (user_data["unique_email"], camera_name)
-        #print mask_path
-        #if os.path.isfile(mask_path):
-        #    mask = cv2.imread(mask_path)
+        # mask = None
+        # mask_path = "settings/masks/%s/%s.jpg" % (user_data["unique_email"], camera_name)
+        # print mask_path
+        # if os.path.isfile(mask_path):
+        #     mask = cv2.imread(mask_path)
 
-        #for i in range(number_of_images):
-        #    if mask is not None:
-        #        imgs[i] = cv2.add(imgs[i], mask)
-        #    directory = 'images/raw/%s/' % user_data["unique_email"]
-        #    # TODO: create directory is non existent
-        #    filename = '%s/%s-%d.jpg' % (directory, datetime.now().strftime('%Y%m%d%H%M%S'), self.raw)
-        #    cv2.imwrite(filename, imgs[i])
-        #    self.raw += 1
+        # for i in range(number_of_images):
+        #     if mask is not None:
+        #         imgs[i] = cv2.add(imgs[i], mask)
+        #     directory = 'images/raw/%s/' % user_data["unique_email"]
+        #     # TODO: create directory is non existent
+        #     filename = '%s/%s-%d.jpg' % (directory, datetime.now().strftime('%Y%m%d%H%M%S'), self.raw)
+        #     cv2.imwrite(filename, imgs[i])
+        #     self.raw += 1
         return imgs
 
     def rect_intersect(self, a, b):
@@ -260,9 +262,13 @@ class EmlServer(SMTPServer):
             bool_detected = True
         return bool_detected
 
-    def write_image(self, img):
-        filename = 'images/%s-%d.jpg' % (datetime.now().strftime('%Y%m%d%H%M%S'), self.no)
-        cv2.imwrite(filename, img)
+    def write_image(self, img, img_dir="", filename=""):
+        if filename == "":
+            filename = 'images/%s-%d.jpg' % (datetime.now().strftime('%Y%m%d%H%M%S'), self.no)
+        if img_dir != "" and not os.path.exists(img_dir):
+            os.makedirs(img_dir)
+        file_path = os.path.join(img_dir, filename)
+        cv2.imwrite(file_path, img)
         self.no += 1
 
     def process_message(self, peer, mailfrom, rcpttos, data):
