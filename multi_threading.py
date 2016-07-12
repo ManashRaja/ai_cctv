@@ -118,4 +118,6 @@ class ActionWorker(Thread):
             processing_time = (datetime.now() -
                                datetime.strptime(rom_user_data["event_time"],
                                                  "%d-%h-%Y %I:%M:%S%p")).seconds
+            with self.thread_lock:
+                del self.server.mail_dict[mail_id]
             print "Processed email no %s in %s seconds" % (str(self.server.email_no), str(processing_time))

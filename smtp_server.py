@@ -31,11 +31,11 @@ class EmlServer(SMTPServer):
         self.email_no = 0
         self.dp = DetectPeople()
         self.GDrive = GDrive()
+        self.mail_dict = {}
         self.data_queue = Queue()
         self.img_queue = Queue()
         self.mail_queue = Queue()
         self.debug = True
-        self.mail_dict = {}
         self.config = config
         self.motion_thresh = 15
 
@@ -276,8 +276,8 @@ class EmlServer(SMTPServer):
         self.no += 1
 
     def process_message(self, peer, mailfrom, rcpttos, data):
-        print ("Received Email with %s in data_queue and %s in img_queue" %
-               (str(self.data_queue.qsize()), str(self.img_queue.qsize())))
+        print ("Received Email with %s in data_queue, %s in img_queue and %s in mail_queue." %
+               (str(self.data_queue.qsize()), str(self.img_queue.qsize()), str(self.mail_queue.qsize())))
         # ts = time()
         self.data_queue.put((mailfrom, data))
         self.debug_print("Mailfrom: " + mailfrom)
