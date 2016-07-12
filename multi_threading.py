@@ -1,6 +1,7 @@
-import os
 import uuid
+from datetime import datetime
 from time import strftime
+from threading import Lock
 from threading import Thread
 
 
@@ -8,17 +9,20 @@ class DataWorker(Thread):
     def __init__(self, server):
         super(DataWorker, self).__init__()
         self.server = server
+        self.thread_lock = Lock()
 
     def run(self):
         while True:
             mailfrom, data = self.server.data_queue.get()
+            self.server.data_queue.task_done()
             ret, user_data = self.server.get_user_info(mailfrom)
+            # TODO: If ret False, then log it and save the data.
 
             self.server.debug_print("Received user_data: " + str(user_data))
 
             user_data["camera"] = self.server.get_camera(data, user_data)
-            self.server.debug_print(ret)
-            self.server.debug_print(user_data["configured"] == 1)
+            # self.server.debug_print(ret)
+            # self.server.debug_print(user_data["configured"] == 1)
             ret_time = self.server.within_time_period(user_data)
 
             if (ret and user_data["configured"] == 1 and ret_time):
@@ -26,12 +30,20 @@ class DataWorker(Thread):
                 user_data["id"] = uuid.uuid4()
                 imgs = self.server.decode_images(user_data, data)
                 user_data["diff_rect"] = None
-                if len(imgs) > 2:
+                user_data["imgs"] = imgs
+                user_data["detected"] = {}
+                user_data["action_required"] = False
+                user_data["event_time"] = strftime("%d-%h-%Y %I:%M:%S%p")
+                num_images = len(imgs)
+                if num_images > 2:
                     user_data["diff_rect"] = self.server.get_motion_areas(imgs)
-                for i in range(len(imgs)):
-                    self.server.img_queue.put((user_data, imgs[i]))
+
+                for i in range(num_images):
+                    self.server.img_queue.put((user_data["id"], i, num_images - 1))
+                with self.thread_lock:
+                    self.server.mail_dict[user_data["id"]] = user_data
+                self.server.mail_queue.put(user_data["id"])
             self.server.debug_print("dataworker done")
-            self.server.data_queue.task_done()
 
 
 class ImgWorker(Thread):
@@ -41,26 +53,32 @@ class ImgWorker(Thread):
 
     def run(self):
         while True:
-            user_data, img = self.server.img_queue.get()
-            user_data["detected"] = []
             action_required = False
-            if ("People" in user_data["detections"]):
-                ret = self.server.detect_faces(img, user_data["diff_rect"])
+            mail_id, img_no, tot_images = self.server.img_queue.get()
+            self.server.img_queue.task_done()
+            rom_user_data = None
+            with self.thread_lock:
+                rom_user_data = self.server.mail_dict[mail_id]
+            if ("People" in rom_user_data["detections"]):
+                ret, rects, temp_img = self.server.detect_faces(rom_user_data["imgs"][img_no], rom_user_data["diff_rect"])
                 if ret:
-                    self.server.write_image(img)
-                ret = self.server.dp.detect(img, user_data["diff_rect"])
+                    """with self.thread_lock:
+                        if "People" not in self.server.mail_dict[mail_id]["detected"]:
+                            self.server.mail_dict[mail_id]["detected"]["People"] = []
+                        self.server.mail_dict[mail_id]["detected"]["People"].append((img_no, rects))"""
+                    self.server.write_image(temp_img)
+                ret, rects, temp_img = self.server.dp.detect(rom_user_data["imgs"][img_no], rom_user_data["diff_rect"])
                 if ret:
-                    self.server.write_image(img)
-                    action_required = True
-                    user_data["detected"].append("People")
+                    with self.thread_lock:
+                        if "People" not in self.server.mail_dict[mail_id]["detected"]:
+                            self.server.mail_dict[mail_id]["detected"]["People"] = []
+                        self.server.mail_dict[mail_id]["detected"]["People"].append((img_no, rects))
+                    self.server.write_image(temp_img)
                     self.server.debug_print("People detected")
             if action_required:
-                user_data["event_time"] = strftime("%d-%h-%Y %I:%M:%S%p")
-                self.server.action_queue.put(user_data)
-                if ("GDrive" in user_data["actions"] and user_data["gdrive"] != ""):
-                    user_data["cvimage"] = img
+                with self.thread_lock:
+                    self.server.mail_dict[mail_id]["action_required"] = True
                 self.server.debug_print("Action Required")
-            self.server.img_queue.task_done()
 
 
 class ActionWorker(Thread):
@@ -70,19 +88,34 @@ class ActionWorker(Thread):
 
     def run(self):
         while True:
-            user_data = self.server.action_queue.get()
-            if ("Email" in user_data["actions"] and user_data["to_email"] != "") and user_data["id"] in self.server.image_dict:
-                self.server.send_email_alert(user_data)
-                self.server.debug_print("Sent Email")
-            if ("GDrive" in user_data["actions"] and user_data["gdrive"] != ""):
-                home_dir = os.path.expanduser('~')
-                img_dir = os.path.join(home_dir, '.cctvmails_temp', '.images')
-                file_name = user_data["event_time"] + ".jpg"
-                self.server.write_image(user_data["cvimage"], img_dir, file_name)
-                self.server.GDrive.upload_image(user_data, os.path.join(img_dir, file_name))
-                os.remove(os.path.join(img_dir, file_name))
-                self.server.debug_print("Uploaded to Google Drive")
-            if user_data["id"] in self.server.image_dict:
-                del self.server.image_dict[user_data["id"]]
+            mail_id = self.server.mail_queue.get()
+            self.server.mail_queue.task_done()
+            rom_user_data = None
+            with self.thread_lock:
+                rom_user_data = self.server.mail_dict[mail_id]
+            if rom_user_data["action_required"] is True:
+                if ("Email" in rom_user_data["actions"] and rom_user_data["to_email"] != ""):
+                    self.server.send_email_alert(rom_user_data)
+                    self.server.debug_print("Sent Email")
+                '''if ("GDrive" in rom_user_data["actions"] and rom_user_data["gdrive"] != ""):
+                    """
+                    Provide GDrive.add_to_upload_queue with the images.
+                    The GDrive class will write the images to .cctvmails/gdrive/unique_email/
+                    with image name in format "Channel 02@event time-no.jpg
+                    send a ping with image location.
+                    receive the ping and add it to queue
+                    thread workers use the queue to upload
+                    """
+                    home_dir = os.path.expanduser('~')
+                    img_dir = os.path.join(home_dir, '.cctvmails_temp', '.images')
+                    file_name = user_data["event_time"] + ".jpg"
+                    self.server.write_image(user_data["cvimage"], img_dir, file_name)
+                    self.server.GDrive.upload_image(user_data, os.path.join(img_dir, file_name))
+                    os.remove(os.path.join(img_dir, file_name))
+                    self.server.debug_print("Uploaded to Google Drive")'''
             self.server.debug_print("Action worker done")
-            self.server.action_queue.task_done()
+            self.server.email_no += 1
+            processing_time = (datetime.now() -
+                               datetime.strptime(rom_user_data["event_time"],
+                                                 "%d-%h-%Y %I:%M:%S%p")).seconds
+            print "Processed email no %s in %s seconds" % (str(self.server.email_no), str(processing_time))

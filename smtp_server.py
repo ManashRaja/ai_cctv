@@ -28,13 +28,14 @@ class EmlServer(SMTPServer):
         SMTPServer.__init__(self, local_address, remote_address)
         self.no = 0
         self.raw = 0
+        self.email_no = 0
         self.dp = DetectPeople()
         self.GDrive = GDrive()
         self.data_queue = Queue()
         self.img_queue = Queue()
-        self.action_queue = Queue()
+        self.mail_queue = Queue()
         self.debug = True
-        self.image_dict = {}
+        self.mail_dict = {}
         self.config = config
         self.motion_thresh = 15
 
@@ -64,7 +65,7 @@ class EmlServer(SMTPServer):
                       Thanking you,
                       cctvmails.com
                    """ % (user_data["username"],
-                          ', '.join(map(str, user_data["detected"])),
+                          ', '.join(map(str, list(user_data["detected"]))),
                           user_data["event_time"],
                           user_data["camera"],
                           user_data["rule_applied"])
@@ -72,10 +73,11 @@ class EmlServer(SMTPServer):
             msg.attach(MIMEText(text))
 
             i = 1
-            for image_string in self.image_dict[user_data["id"]]:
-                image_name = "%s-%s.jpg" % (user_data["id"], str(++i))
+            for img in user_data["imgs"]:
+                image_name = "%s-%s.jpg" % (user_data["event_time"], str(++i))
                 filemsg = email.mime.base.MIMEBase('application', image_name)
-                filemsg.set_payload(base64.b64decode(image_string))
+                filemsg.set_payload(cv2.imencode('.jpg', img)[1].tostring())
+                # filemsg.set_payload(base64.b64decode(image_string))
                 email.encoders.encode_base64(filemsg)
                 filemsg.add_header('Content-Disposition', 'attachment;filename=' + image_name)
                 msg.attach(filemsg)
@@ -213,7 +215,6 @@ class EmlServer(SMTPServer):
         image_strings = re.findall(user_data["configs"]["Image Regex"], data)
         imgs = []
         number_of_images = len(image_strings)
-        self.image_dict[user_data["id"]] = image_strings
         for i in range(number_of_images):
             imgs.append(self.readb64(image_strings[i]))
 
@@ -253,14 +254,17 @@ class EmlServer(SMTPServer):
             minSize=(30, 30),
             flags=cv2.CASCADE_SCALE_IMAGE  # previously cv2.cv.CV_HAAR_SCALE_IMAGE
         )
+        rects = []
+        temp_img = img
         if len(faces) > 0:
             # Draw a rectangle around the faces
             for (x, y, w, h) in faces:
-                cv2.rectangle(img, (x, y), (x + w, y + h), (0, 255, 0), 2)
+                cv2.rectangle(temp_img, (x, y), (x + w, y + h), (0, 255, 0), 2)
                 if self.rect_intersect((x, y, x + w, y + h), diff_rect):
-                    cv2.rectangle(img, (x, y), (x + w, y + h), (255, 255, 255), 2)
-            bool_detected = True
-        return bool_detected
+                    rects.append(x, y, x + w, y + h)
+                    cv2.rectangle(temp_img, (x, y), (x + w, y + h), (255, 255, 255), 2)
+                    bool_detected = True
+        return (bool_detected, rects, temp_img)
 
     def write_image(self, img, img_dir="", filename=""):
         if filename == "":
@@ -274,10 +278,10 @@ class EmlServer(SMTPServer):
     def process_message(self, peer, mailfrom, rcpttos, data):
         print ("Received Email with %s in data_queue and %s in img_queue" %
                (str(self.data_queue.qsize()), str(self.img_queue.qsize())))
-        ts = time()
+        # ts = time()
         self.data_queue.put((mailfrom, data))
         self.debug_print("Mailfrom: " + mailfrom)
-        print('Took {}'.format(time() - ts))
+        # print('Took {}'.format(time() - ts))
 
 
 def run():
