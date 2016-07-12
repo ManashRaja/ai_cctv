@@ -14,6 +14,7 @@ from PIL import Image
 from io import BytesIO
 from Queue import Queue
 from gdrive import GDrive
+from threading import Lock
 from smtpd import SMTPServer
 from datetime import datetime
 from email.utils import formatdate
@@ -38,6 +39,7 @@ class EmlServer(SMTPServer):
         self.debug = False
         self.config = config
         self.motion_thresh = 15
+        self.thread_lock = Lock()
 
     def send_email_alert(self, user_data):
         try:
