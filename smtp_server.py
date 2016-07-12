@@ -40,6 +40,7 @@ class EmlServer(SMTPServer):
         self.config = config
         self.motion_thresh = 15
         self.thread_lock = Lock()
+        self.write_raw = False
 
     def send_email_alert(self, user_data):
         try:
@@ -92,6 +93,7 @@ class EmlServer(SMTPServer):
             smtp.login(username, pss)
             smtp.sendmail(send_from, send_to, msg.as_string())
             smtp.close()
+            print "Email Sent"
         except Exception as e:
             print "Email Send Error: " + str(traceback.format_exc())
 
@@ -220,20 +222,20 @@ class EmlServer(SMTPServer):
         for i in range(number_of_images):
             imgs.append(self.readb64(image_strings[i]))
 
-        # mask = None
+        mask = None
         # mask_path = "settings/masks/%s/%s.jpg" % (user_data["unique_email"], camera_name)
         # print mask_path
         # if os.path.isfile(mask_path):
         #     mask = cv2.imread(mask_path)
-
-        # for i in range(number_of_images):
-        #     if mask is not None:
-        #         imgs[i] = cv2.add(imgs[i], mask)
-        #     directory = 'images/raw/%s/' % user_data["unique_email"]
-        #     # TODO: create directory is non existent
-        #     filename = '%s/%s-%d.jpg' % (directory, datetime.now().strftime('%Y%m%d%H%M%S'), self.raw)
-        #     cv2.imwrite(filename, imgs[i])
-        #     self.raw += 1
+        if self.write_raw:
+            for i in range(number_of_images):
+                if mask is not None:
+                    imgs[i] = cv2.add(imgs[i], mask)
+                directory = 'images/raw'
+                # TODO: create directory is non existent
+                filename = '%s/%s-%d.jpg' % (directory, datetime.now().strftime('%Y%m%d%H%M%S'), self.raw)
+                cv2.imwrite(filename, imgs[i])
+                self.raw += 1
         return imgs
 
     def rect_intersect(self, a, b):
@@ -263,7 +265,7 @@ class EmlServer(SMTPServer):
             for (x, y, w, h) in faces:
                 cv2.rectangle(temp_img, (x, y), (x + w, y + h), (0, 255, 0), 2)
                 if self.rect_intersect((x, y, x + w, y + h), diff_rect):
-                    rects.append(x, y, x + w, y + h)
+                    rects.append((x, y, x + w, y + h))
                     cv2.rectangle(temp_img, (x, y), (x + w, y + h), (255, 255, 255), 2)
                     bool_detected = True
         return (bool_detected, rects, temp_img)
@@ -297,7 +299,7 @@ def run():
         # workers are blocking
         data_worker.daemon = True
         data_worker.start()
-    for x in range(2):
+    for x in range(6):
         img_worker = multi_threading.ImgWorker(server)
         # Setting daemon to True will let the main thread exit even though the
         # workers are blocking

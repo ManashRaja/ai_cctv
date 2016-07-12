@@ -26,11 +26,11 @@ class DetectPeople(object):
         bool_detected = False
         image = img
         image = image[25:image.shape[2] - 25, 0:image.shape[1]]
-        image = imutils.resize(image, width=min(400, image.shape[1]))
+        image = imutils.resize(image, width=max(400, image.shape[1]))
         # orig = image.copy()
 
         # detect people in the image
-        (rects, weights) = self._hog.detectMultiScale(image, winStride=(4, 4),
+        (rects, weights) = self._hog.detectMultiScale(image, winStride=(2, 2),
                                                       padding=(8, 8), scale=1.05)
 
         # draw the original bounding boxes
@@ -44,10 +44,13 @@ class DetectPeople(object):
         pick = non_max_suppression(rects, probs=None, overlapThresh=0.65)
 
         # draw the final bounding boxes
+        temp_img = img
+        rects = []
         if len(pick) > 0:
             for (xA, yA, xB, yB) in pick:
-                cv2.rectangle(img, (xA, yA + 25), (xB, yB + 25), (255, 0, 0), 2)
+                cv2.rectangle(temp_img, (xA, yA + 25), (xB, yB + 25), (255, 0, 0), 2)
                 if self.rect_intersect((xA, yA + 25, xB, yB + 25), diff_rect):
-                    cv2.rectangle(img, (xA, yA + 25), (xB, yB + 25), (0, 0, 0), 2)
-            bool_detected = True
-        return bool_detected
+                    rects.append((xA, yA, xB + 25, yB + 25))
+                    cv2.rectangle(temp_img, (xA, yA + 25), (xB, yB + 25), (0, 0, 0), 2)
+                    bool_detected = True
+        return (bool_detected, rects, temp_img)
