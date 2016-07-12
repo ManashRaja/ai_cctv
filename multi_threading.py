@@ -25,7 +25,7 @@ class DataWorker(Thread):
 
             if (ret and user_data["configured"] == 1 and ret_time):
                 self.server.debug_print("cleared to process")
-                user_data["id"] = uuid.uuid4()
+                user_data["id"] = str(uuid.uuid4())
                 imgs = self.server.decode_images(user_data, data)
                 user_data["diff_rect"] = None
                 user_data["imgs"] = imgs
@@ -115,7 +115,7 @@ class ActionWorker(Thread):
             self.server.email_no += 1
             processing_time = (datetime.now() -
                                datetime.strptime(rom_user_data["event_time"],
-                                                 "%d-%h-%Y %I:%M:%S%p")).seconds
+                                                 "%d-%b-%Y %I:%M:%S%p")).seconds
             with self.server.thread_lock:
                 del self.server.mail_dict[mail_id]
             print "Processed email no %s in %s seconds" % (str(self.server.email_no), str(processing_time))
