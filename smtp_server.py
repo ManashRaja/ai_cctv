@@ -35,7 +35,7 @@ class EmlServer(SMTPServer):
         self.data_queue = Queue()
         self.img_queue = Queue()
         self.mail_queue = Queue()
-        self.debug = True
+        self.debug = False
         self.config = config
         self.motion_thresh = 15
 
