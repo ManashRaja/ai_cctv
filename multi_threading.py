@@ -1,7 +1,6 @@
 import uuid
 from datetime import datetime
 from time import strftime
-from threading import Lock
 from threading import Thread
 
 
@@ -9,7 +8,6 @@ class DataWorker(Thread):
     def __init__(self, server):
         super(DataWorker, self).__init__()
         self.server = server
-        self.thread_lock = Lock()
 
     def run(self):
         while True:
@@ -40,7 +38,7 @@ class DataWorker(Thread):
 
                 for i in range(num_images):
                     self.server.img_queue.put((user_data["id"], i, num_images - 1))
-                with self.thread_lock:
+                with self.server.thread_lock:
                     self.server.mail_dict[user_data["id"]] = user_data
                 self.server.mail_queue.put(user_data["id"])
             self.server.debug_print("dataworker done")
@@ -57,26 +55,26 @@ class ImgWorker(Thread):
             mail_id, img_no, tot_images = self.server.img_queue.get()
             self.server.img_queue.task_done()
             rom_user_data = None
-            with self.thread_lock:
+            with self.server.thread_lock:
                 rom_user_data = self.server.mail_dict[mail_id]
             if ("People" in rom_user_data["detections"]):
                 ret, rects, temp_img = self.server.detect_faces(rom_user_data["imgs"][img_no], rom_user_data["diff_rect"])
                 if ret:
-                    """with self.thread_lock:
+                    """with self.server.thread_lock:
                         if "People" not in self.server.mail_dict[mail_id]["detected"]:
                             self.server.mail_dict[mail_id]["detected"]["People"] = []
                         self.server.mail_dict[mail_id]["detected"]["People"].append((img_no, rects))"""
                     self.server.write_image(temp_img)
                 ret, rects, temp_img = self.server.dp.detect(rom_user_data["imgs"][img_no], rom_user_data["diff_rect"])
                 if ret:
-                    with self.thread_lock:
+                    with self.server.thread_lock:
                         if "People" not in self.server.mail_dict[mail_id]["detected"]:
                             self.server.mail_dict[mail_id]["detected"]["People"] = []
                         self.server.mail_dict[mail_id]["detected"]["People"].append((img_no, rects))
                     self.server.write_image(temp_img)
                     self.server.debug_print("People detected")
             if action_required:
-                with self.thread_lock:
+                with self.server.thread_lock:
                     self.server.mail_dict[mail_id]["action_required"] = True
                 self.server.debug_print("Action Required")
 
@@ -91,7 +89,7 @@ class ActionWorker(Thread):
             mail_id = self.server.mail_queue.get()
             self.server.mail_queue.task_done()
             rom_user_data = None
-            with self.thread_lock:
+            with self.server.thread_lock:
                 rom_user_data = self.server.mail_dict[mail_id]
             if rom_user_data["action_required"] is True:
                 if ("Email" in rom_user_data["actions"] and rom_user_data["to_email"] != ""):
@@ -118,6 +116,6 @@ class ActionWorker(Thread):
             processing_time = (datetime.now() -
                                datetime.strptime(rom_user_data["event_time"],
                                                  "%d-%h-%Y %I:%M:%S%p")).seconds
-            with self.thread_lock:
+            with self.server.thread_lock:
                 del self.server.mail_dict[mail_id]
             print "Processed email no %s in %s seconds" % (str(self.server.email_no), str(processing_time))
