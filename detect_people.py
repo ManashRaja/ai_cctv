@@ -24,7 +24,7 @@ class DetectPeople(object):
         # load the image and resize it to (1) reduce detection time
         # and (2) improve detection accuracy """
         bool_detected = False
-        image = img
+        image = img.copy()
         image = image[25:image.shape[2] - 25, 0:image.shape[1]]
         image = imutils.resize(image, width=max(400, image.shape[1]))
         # orig = image.copy()
@@ -44,7 +44,7 @@ class DetectPeople(object):
         pick = non_max_suppression(rects, probs=None, overlapThresh=0.65)
 
         # draw the final bounding boxes
-        temp_img = img
+        temp_img = img.copy()
         rects = []
         if len(pick) > 0:
             for (xA, yA, xB, yB) in pick:

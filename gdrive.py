@@ -113,7 +113,15 @@ class GDrive(object):
         if not os.path.isfile(creds_path):
             self._write_creds_file(creds_path, user_data)
         i = 0
-        for img in user_data["imgs"]:
+
+        # Select imges to upload
+        selected_imgs = []
+        for detections in user_data["detected"].keys():
+            for occurences in user_data["detected"][detections]:
+                if occurences[0] not in selected_imgs:
+                    selected_imgs.append(occurences[0])
+        for img_no in selected_imgs:
+            img = user_data["imgs"][img_no]
             img_name = "%s#%s#%s-%s.jpg" % (user_data["unique_email"], user_data["camera"], user_data["event_time"], str(i))
             i += 1
             img_path = os.path.join(images_dir, img_name)

@@ -262,7 +262,7 @@ class EmlServer(SMTPServer):
             flags=cv2.CASCADE_SCALE_IMAGE  # previously cv2.cv.CV_HAAR_SCALE_IMAGE
         )
         rects = []
-        temp_img = img
+        temp_img = img.copy()
         if len(faces) > 0:
             # Draw a rectangle around the faces
             for (x, y, w, h) in faces:
