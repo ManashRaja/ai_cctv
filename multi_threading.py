@@ -106,22 +106,16 @@ class ActionWorker(Thread):
                     self.server.debug_print("Sending Email. ..")
                     self.server.send_email_alert(rom_user_data)
                     self.server.debug_print("Sent Email")
-                '''if ("GDrive" in rom_user_data["actions"] and rom_user_data["gdrive"] != ""):
+                if ("GDrive" in rom_user_data["actions"] and rom_user_data["gdrive"] != ""):
                     """
-                    Provide GDrive.add_to_upload_queue with the images.
-                    The GDrive class will write the images to .cctvmails/gdrive/unique_email/
-                    with image name in format "Channel 02@event time-no.jpg
+                    *Provide GDrive.add_to_upload_queue with the images.
+                    *The GDrive class will write the images to .cctvmails/gdrive/unique_email/
+                    *with image name in format "Channel 02@event time-no.jpg"
                     send a ping with image location.
                     receive the ping and add it to queue
                     thread workers use the queue to upload
                     """
-                    home_dir = os.path.expanduser('~')
-                    img_dir = os.path.join(home_dir, '.cctvmails_temp', '.images')
-                    file_name = user_data["event_time"] + ".jpg"
-                    self.server.write_image(user_data["cvimage"], img_dir, file_name)
-                    self.server.GDrive.upload_image(user_data, os.path.join(img_dir, file_name))
-                    os.remove(os.path.join(img_dir, file_name))
-                    self.server.debug_print("Uploaded to Google Drive")'''
+                    self.server.GDrive.queue_image(rom_user_data)
             self.server.debug_print("Action worker done")
             self.server.email_no += 1
             processing_time = (datetime.now() -

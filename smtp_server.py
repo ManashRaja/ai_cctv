@@ -175,6 +175,7 @@ class EmlServer(SMTPServer):
                     user_data["to_email"] = row[8]
                     user_data["gdrive"] = row[9]
                     user_data["dropbox"] = row[10]
+                    user_data["gdrive_parent"] = row[11]
             cur.close()
             conn.close()
         except MySQLdb.Error, e:
