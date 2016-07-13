@@ -3,3 +3,4 @@ Pillow
 imutils
 Flask
 --upgrade google-api-python-client
+pyzmq

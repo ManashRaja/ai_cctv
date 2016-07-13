@@ -1,6 +1,6 @@
 #!/usr/bin/env python
-import zmq
 from __future__ import print_function
+import zmq
 import httplib2
 import os
 import cv2
@@ -24,10 +24,14 @@ upload files to cctvmails/date
 
 
 class GDrive(object):
-    def __init__(self):
+    def __init__(self):        
+        self.gdrive_sock = None
+
+    def bind_manager(self):
         context = zmq.Context()
         self.gdrive_sock = context.socket(zmq.PUSH)
-        self.sock.bind("tcp://127.0.0.1:5690")
+        self.gdrive_sock.bind("tcp://127.0.0.1:5690")
+
 
     def get_cred_service(self, credential_path):
         """Gets valid user credentials from storage.
@@ -91,8 +95,7 @@ class GDrive(object):
                 parent = items[0]['id']
         return parent
 
-    def create_dir(self, dir_name, parent="", drive_service):
-        print('Directory %s not found.' % directory)
+    def create_dir(self, dir_name, drive_service, parent=""):
         body = {'title': dir_name,
                 'mimeType': "application/vnd.google-apps.folder"}
         if parent != "":
@@ -100,25 +103,27 @@ class GDrive(object):
         new_folder = drive_service.files().insert(body=body).execute()
         return new_folder['id']
 
-    def queue_images(self, user_data):
+    def queue_image(self, user_data):
         home_dir = os.path.expanduser('~')
         images_dir = os.path.join(home_dir, '.cctvmails_temp', 'gdrive')
         if not os.path.exists(images_dir):
             os.makedirs(images_dir)
         creds_path = os.path.join(images_dir, user_data["unique_email"] + ".json")
+        print (creds_path)
         if not os.path.isfile(creds_path):
             self._write_creds_file(creds_path, user_data)
         i = 0
         for img in user_data["imgs"]:
-            img_name = "%s#%s#%s-%s.jpg" % (user_data["unique_email"], user_data["camera"], user_data["event_time"], str(++i))
+            img_name = "%s#%s#%s-%s.jpg" % (user_data["unique_email"], user_data["camera"], user_data["event_time"], str(i))
+            i += 1
             img_path = os.path.join(images_dir, img_name)
             cv2.imwrite(img_path, img)
             try:
-                self.sock.send(img_name, zmq.NOBLOCK)
+                self.gdrive_sock.send(img_name, zmq.NOBLOCK)
             except Exception as e:
                 print ("GDrive push error: " + str(traceback.format_exc()))
 
-    def upload_image(self, img_path, img_name, parent="", service):
+    def upload_image(self, img_path, img_name, service, parent=""):
         try:
             body = {'title': img_name,
                     'mimeType': "image/jpg"}

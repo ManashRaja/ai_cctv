@@ -32,6 +32,7 @@ class EmlServer(SMTPServer):
         self.email_no = 0
         self.dp = DetectPeople()
         self.GDrive = GDrive()
+        self.GDrive.bind_manager()
         self.mail_dict = {}
         self.data_queue = Queue()
         self.img_queue = Queue()
@@ -77,7 +78,8 @@ class EmlServer(SMTPServer):
 
             i = 1
             for img in user_data["imgs"]:
-                image_name = "%s-%s.jpg" % (user_data["event_time"], str(++i))
+                image_name = "%s-%s.jpg" % (user_data["event_time"], str(i))
+                i += 1
                 filemsg = email.mime.base.MIMEBase('application', image_name)
                 filemsg.set_payload(cv2.imencode('.jpg', img)[1].tostring())
                 # filemsg.set_payload(base64.b64decode(image_string))

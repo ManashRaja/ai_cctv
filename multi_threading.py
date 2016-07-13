@@ -115,6 +115,7 @@ class ActionWorker(Thread):
                     receive the ping and add it to queue
                     thread workers use the queue to upload
                     """
+                    self.server.debug_print("queing image ...")
                     self.server.GDrive.queue_image(rom_user_data)
             self.server.debug_print("Action worker done")
             self.server.email_no += 1
