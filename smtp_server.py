@@ -242,13 +242,10 @@ class EmlServer(SMTPServer):
         return imgs
 
     def rect_intersect(self, a, b):
-        x = max(a[0], b[0])
-        y = max(a[1], b[1])
-        w = min(a[0] + a[2], b[0] + b[2]) - x
-        h = min(a[1] + a[3], b[1] + b[3]) - y
-        if w < 0 or h < 0:
+        if (a[2] < b[0] or b[2] < a[0] or a[3] < b[1] or b[3] < a[1]):
             return False
-        return True
+        else:
+            return True
 
     def detect_faces(self, img, diff_rect):
         bool_detected = False
