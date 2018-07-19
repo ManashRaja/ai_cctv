@@ -13,17 +13,18 @@ class DataWorker(Thread):
         while True:
             mailfrom, data = self.server.data_queue.get()
             self.server.data_queue.task_done()
-            ret, user_data = self.server.get_user_info(mailfrom)
+            #ret, user_data = self.server.get_user_info(mailfrom)
+            user_data = {}
             # TODO: If ret False, then log it and save the data.
 
-            self.server.debug_print("Received user_data: " + str(user_data))
+            #self.server.debug_print("Received user_data: " + str(user_data))
 
             user_data["camera"] = self.server.get_camera(data, user_data)
             # self.server.debug_print(ret)
             # self.server.debug_print(user_data["configured"] == 1)
             ret_time = self.server.within_time_period(user_data)
 
-            if (ret and user_data["configured"] == 1 and ret_time):
+            if (ret_time):
                 self.server.debug_print("cleared to process")
                 user_data["id"] = str(uuid.uuid4())
                 imgs = self.server.decode_images(user_data, data)
@@ -88,45 +89,45 @@ class ImgWorker(Thread):
                 self.server.mail_dict[mail_id]["img_processed"] += 1
 
 
-class ActionWorker(Thread):
-    def __init__(self, server):
-        super(ActionWorker, self).__init__()
-        self.server = server
+# class ActionWorker(Thread):
+#     def __init__(self, server):
+#         super(ActionWorker, self).__init__()
+#         self.server = server
 
-    def run(self):
-        while True:
-            mail_id = self.server.mail_queue.get()
-            self.server.mail_queue.task_done()
-            rom_user_data = None
-            with self.server.thread_lock:
-                rom_user_data = self.server.mail_dict[mail_id]
-            if rom_user_data["action_required"]:
-                self.server.debug_print("Action Required")
-                if ("Email" in rom_user_data["actions"] and rom_user_data["to_email"] != ""):
-                    self.server.debug_print("Sending Email. ..")
-                    self.server.send_email_alert(rom_user_data)
-                    self.server.debug_print("Sent Email")
-                '''if ("GDrive" in rom_user_data["actions"] and rom_user_data["gdrive"] != ""):
-                    """
-                    Provide GDrive.add_to_upload_queue with the images.
-                    The GDrive class will write the images to .cctvmails/gdrive/unique_email/
-                    with image name in format "Channel 02@event time-no.jpg
-                    send a ping with image location.
-                    receive the ping and add it to queue
-                    thread workers use the queue to upload
-                    """
-                    home_dir = os.path.expanduser('~')
-                    img_dir = os.path.join(home_dir, '.cctvmails_temp', '.images')
-                    file_name = user_data["event_time"] + ".jpg"
-                    self.server.write_image(user_data["cvimage"], img_dir, file_name)
-                    self.server.GDrive.upload_image(user_data, os.path.join(img_dir, file_name))
-                    os.remove(os.path.join(img_dir, file_name))
-                    self.server.debug_print("Uploaded to Google Drive")'''
-            self.server.debug_print("Action worker done")
-            self.server.email_no += 1
-            processing_time = (datetime.now() -
-                               datetime.strptime(rom_user_data["event_time"],
-                                                 "%d-%b-%Y %I:%M:%S%p")).seconds
-            with self.server.thread_lock:
-                del self.server.mail_dict[mail_id]
-            print "Processed email no %s in %s seconds" % (str(self.server.email_no), str(processing_time))
+#     def run(self):
+#         while True:
+#             mail_id = self.server.mail_queue.get()
+#             self.server.mail_queue.task_done()
+#             rom_user_data = None
+#             with self.server.thread_lock:
+#                 rom_user_data = self.server.mail_dict[mail_id]
+#             if rom_user_data["action_required"]:
+#                 self.server.debug_print("Action Required")
+#                 if ("Email" in rom_user_data["actions"] and rom_user_data["to_email"] != ""):
+#                     self.server.debug_print("Sending Email. ..")
+#                     self.server.send_email_alert(rom_user_data)
+#                     self.server.debug_print("Sent Email")
+#                 '''if ("GDrive" in rom_user_data["actions"] and rom_user_data["gdrive"] != ""):
+#                     """
+#                     Provide GDrive.add_to_upload_queue with the images.
+#                     The GDrive class will write the images to .cctvmails/gdrive/unique_email/
+#                     with image name in format "Channel 02@event time-no.jpg
+#                     send a ping with image location.
+#                     receive the ping and add it to queue
+#                     thread workers use the queue to upload
+#                     """
+#                     home_dir = os.path.expanduser('~')
+#                     img_dir = os.path.join(home_dir, '.cctvmails_temp', '.images')
+#                     file_name = user_data["event_time"] + ".jpg"
+#                     self.server.write_image(user_data["cvimage"], img_dir, file_name)
+#                     self.server.GDrive.upload_image(user_data, os.path.join(img_dir, file_name))
+#                     os.remove(os.path.join(img_dir, file_name))
+#                     self.server.debug_print("Uploaded to Google Drive")'''
+#             self.server.debug_print("Action worker done")
+#             self.server.email_no += 1
+#             processing_time = (datetime.now() -
+#                                datetime.strptime(rom_user_data["event_time"],
+#                                                  "%d-%b-%Y %I:%M:%S%p")).seconds
+#             with self.server.thread_lock:
+#                 del self.server.mail_dict[mail_id]
+#             print "Processed email no %s in %s seconds" % (str(self.server.email_no), str(processing_time))

@@ -3,7 +3,7 @@ import re
 import cv2
 import json
 import base64
-import MySQLdb
+#import MySQLdb
 import asyncore
 import traceback
 import numpy as np
@@ -13,7 +13,7 @@ from time import time
 from PIL import Image
 from io import BytesIO
 from Queue import Queue
-from gdrive import GDrive
+#from gdrive import GDrive
 from threading import Lock
 from smtpd import SMTPServer
 from datetime import datetime
@@ -31,7 +31,7 @@ class EmlServer(SMTPServer):
         self.raw = 0
         self.email_no = 0
         self.dp = DetectPeople()
-        self.GDrive = GDrive()
+        #self.GDrive = GDrive()
         self.mail_dict = {}
         self.data_queue = Queue()
         self.img_queue = Queue()
@@ -146,40 +146,40 @@ class EmlServer(SMTPServer):
         diff_rect = self.crop_area(img_diff)
         return diff_rect
 
-    def get_user_info(self, mailfrom):
-        ret = False
-        user_data = {}
-        try:
-            conn = MySQLdb.connect(host=self.config.get('SQLdb', 'host'),
-                                   user=self.config.get('SQLdb', 'user'),
-                                   passwd=self.config.get('SQLdb', 'passwd'),
-                                   db=self.config.get('SQLdb', 'db'),
-                                   port=int(self.config.get('SQLdb', 'port')))
-            cur = conn.cursor()
-            exec_string = "SELECT * FROM %s WHERE `%s` = '%s'" % (self.config.get('SQLdb', 'table'),
-                                                                  self.config.get('SQLdb', 'auth_field'),
-                                                                  mailfrom)
-            count = cur.execute(exec_string)
-            if (count > 0):
-                ret = True
-                data = cur.fetchall()
-                # print the rows
-                for row in data:
-                    user_data["username"] = row[1]
-                    user_data["pss"] = row[2]
-                    user_data["reg_email"] = row[3]
-                    user_data["unique_email"] = row[4]
-                    user_data["configs"] = json.loads(row[5])
-                    user_data["rules"] = json.loads(row[6])
-                    user_data["configured"] = row[7]
-                    user_data["to_email"] = row[8]
-                    user_data["gdrive"] = row[9]
-                    user_data["dropbox"] = row[10]
-            cur.close()
-            conn.close()
-        except MySQLdb.Error, e:
-            print "Mysql Error %d: %s" % (e.args[0], e.args[1])
-        return (ret, user_data)
+    # def get_user_info(self, mailfrom):
+    #     ret = False
+    #     user_data = {}
+    #     try:
+    #         conn = MySQLdb.connect(host=self.config.get('SQLdb', 'host'),
+    #                                user=self.config.get('SQLdb', 'user'),
+    #                                passwd=self.config.get('SQLdb', 'passwd'),
+    #                                db=self.config.get('SQLdb', 'db'),
+    #                                port=int(self.config.get('SQLdb', 'port')))
+    #         cur = conn.cursor()
+    #         exec_string = "SELECT * FROM %s WHERE `%s` = '%s'" % (self.config.get('SQLdb', 'table'),
+    #                                                               self.config.get('SQLdb', 'auth_field'),
+    #                                                               mailfrom)
+    #         count = cur.execute(exec_string)
+    #         if (count > 0):
+    #             ret = True
+    #             data = cur.fetchall()
+    #             # print the rows
+    #             for row in data:
+    #                 user_data["username"] = row[1]
+    #                 user_data["pss"] = row[2]
+    #                 user_data["reg_email"] = row[3]
+    #                 user_data["unique_email"] = row[4]
+    #                 user_data["configs"] = json.loads(row[5])
+    #                 user_data["rules"] = json.loads(row[6])
+    #                 user_data["configured"] = row[7]
+    #                 user_data["to_email"] = row[8]
+    #                 user_data["gdrive"] = row[9]
+    #                 user_data["dropbox"] = row[10]
+    #         cur.close()
+    #         conn.close()
+    #     except MySQLdb.Error, e:
+    #         print "Mysql Error %d: %s" % (e.args[0], e.args[1])
+    #     return (ret, user_data)
 
     def within_time_period(self, user_data):
         for i in range(len(user_data["rules"])):
@@ -305,12 +305,12 @@ def run():
         # workers are blocking
         img_worker.daemon = True
         img_worker.start()
-    for x in range(2):
-        action_worker = multi_threading.ActionWorker(server)
-        # Setting daemon to True will let the main thread exit even though the
-        # workers are blocking
-        action_worker.daemon = True
-        action_worker.start()
+    # for x in range(2):
+    #     action_worker = multi_threading.ActionWorker(server)
+    #     # Setting daemon to True will let the main thread exit even though the
+    #     # workers are blocking
+    #     action_worker.daemon = True
+    #     action_worker.start()
     try:
         asyncore.loop()
     except KeyboardInterrupt:
