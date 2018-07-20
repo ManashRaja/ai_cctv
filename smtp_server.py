@@ -25,7 +25,7 @@ import smtplib, email, email.encoders, email.mime.text, email.mime.base
 
 
 class EmlServer(SMTPServer):
-    def __init__(self, local_address, remote_address, config):
+    def __init__(self, local_address, remote_address):
         SMTPServer.__init__(self, local_address, remote_address)
         self.no = 0
         self.raw = 0
@@ -37,7 +37,7 @@ class EmlServer(SMTPServer):
         self.img_queue = Queue()
         self.mail_queue = Queue()
         self.debug = False
-        self.config = config
+        #self.config = config
         self.motion_thresh = 15
         self.thread_lock = Lock()
         self.write_raw = False
@@ -292,7 +292,7 @@ def run():
     print "Running"
     #config = ConfigParser.ConfigParser()
     #config.read("settings/config.ini")
-    server = EmlServer(('0.0.0.0', 587), None, config)
+    server = EmlServer(('0.0.0.0', 587), None)
     for x in range(2):
         data_worker = multi_threading.DataWorker(server)
         # Setting daemon to True will let the main thread exit even though the
@@ -305,12 +305,13 @@ def run():
         # workers are blocking
         img_worker.daemon = True
         img_worker.start()
-    # for x in range(2):
-    #     action_worker = multi_threading.ActionWorker(server)
-    #     # Setting daemon to True will let the main thread exit even though the
-    #     # workers are blocking
-    #     action_worker.daemon = True
-    #     action_worker.start()
+    for x in range(2):
+        action_worker = multi_threading.ActionWorker(server)
+        # Setting daemon to True will let the main thread exit even though the
+        # workers are blocking
+        action_worker.daemon = True
+        action_worker.start()
+    print "will loop now"
     try:
         asyncore.loop()
     except KeyboardInterrupt:
