@@ -15,6 +15,9 @@ class DataWorker(Thread):
             self.server.data_queue.task_done()
             #ret, user_data = self.server.get_user_info(mailfrom)
             user_data = {}
+            user_data["unique_email"] = "mpdmanash@gmail.com"
+            user_data["gdrive"] = "none"
+            user_data["gdrive_parent"] = "cctvmails"
             # TODO: If ret False, then log it and save the data.
 
             #self.server.debug_print("Received user_data: " + str(user_data))
@@ -97,13 +100,8 @@ class ActionWorker(Thread):
                 self.server.debug_print("Action Required")
                 #if ("GDrive" in rom_user_data["actions"] and rom_user_data["gdrive"] != ""):
                 if (True):
-                    home_dir = os.path.expanduser('~')
-                    img_dir = os.path.join(home_dir, '.cctvmails_temp', '.images')
-                    file_name = user_data["event_time"] + ".jpg"
-                    self.server.write_image(user_data["cvimage"], img_dir, file_name)
-                    self.server.GDrive.upload_image(user_data, os.path.join(img_dir, file_name))
-                    os.remove(os.path.join(img_dir, file_name))
-                    self.server.debug_print("Uploaded to Google Drive")
+                    self.server.debug_print("queing image ...")
+                    self.server.GDrive.queue_image(rom_user_data)
             self.server.debug_print("Action worker done")
             self.server.email_no += 1
             processing_time = (datetime.now() -

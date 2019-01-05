@@ -13,7 +13,7 @@ from time import time
 from PIL import Image
 from io import BytesIO
 from Queue import Queue
-#from gdrive import GDrive
+from gdrive import GDrive
 from threading import Lock
 from smtpd import SMTPServer
 from datetime import datetime
@@ -31,7 +31,8 @@ class EmlServer(SMTPServer):
         self.raw = 0
         self.email_no = 0
         self.dp = DetectPeople()
-        #self.GDrive = GDrive()
+        self.GDrive = GDrive()
+        self.GDrive.bind_manager()
         self.mail_dict = {}
         self.data_queue = Queue()
         self.img_queue = Queue()
@@ -259,7 +260,7 @@ class EmlServer(SMTPServer):
             flags=cv2.CASCADE_SCALE_IMAGE  # previously cv2.cv.CV_HAAR_SCALE_IMAGE
         )
         rects = []
-        temp_img = img
+        temp_img = img.copy()
         if len(faces) > 0:
             # Draw a rectangle around the faces
             for (x, y, w, h) in faces:

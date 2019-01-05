@@ -1,8 +1,10 @@
 #!/usr/bin/env python
 
 from __future__ import print_function
+import zmq
 import httplib2
 import os
+import cv2
 import traceback
 from datetime import datetime
 from apiclient import discovery
@@ -24,9 +26,14 @@ upload files to cctvmails/date
 
 class GDrive(object):
     def __init__(self):
-        pass
+        self.gdrive_sock = None
 
-    def _get_credentials(self, user_data):
+    def bind_manager(self):
+        context = zmq.Context()
+        self.gdrive_sock = context.socket(zmq.PUSH)
+        self.gdrive_sock.bind("tcp://127.0.0.1:5690")
+
+    def get_cred_service(self, credential_path):
         """Gets valid user credentials from storage.
 
         If nothing has been stored, or if the stored credentials are invalid,
@@ -42,22 +49,9 @@ class GDrive(object):
         except ImportError:
             flags = None
         """
-        # Prepare the credentials file
-        cred_format = '{"_module": "oauth2client.client", "scopes": ["https://www.googleapis.com/auth/drive.file"], "token_expiry": "2016-07-10T19:13:36Z", "id_token": null, "access_token": "ya29.Ci8bA-BwrbAdvLayrfWAfw-p-SRWA9o9xgOEyGkp1np7h8ck4G_-kC-9-_lcmbFVIg", "token_uri": "https://accounts.google.com/o/oauth2/token", "invalid": false, "token_response": %s, "client_id": "426166184784-16qo5rpdm73cc4v6vmc9ueocmapkp51r.apps.googleusercontent.com", "token_info_uri": "https://www.googleapis.com/oauth2/v3/tokeninfo", "client_secret": "y_tSC4-99MqY0jhP958f39u7", "revoke_uri": "https://accounts.google.com/o/oauth2/revoke", "_class": "OAuth2Credentials", "refresh_token": "1/JzeOh3WXfyB8mfAG7glnxftw2k-QWQaQ7lOA-wI8Sps", "user_agent": "cctvmails"}' % user_data["gdrive"]
-
-        home_dir = os.path.expanduser('~')
-        credential_dir = os.path.join(home_dir, '.cctvmails_temp', '.credentials')
-        if not os.path.exists(credential_dir):
-            os.makedirs(credential_dir)
-        credential_path = os.path.join(credential_dir,
-                                       '%s.json' % user_data["id"])
-        temp_file = open(credential_path, "w")
-        temp_file.write(cred_format)
-        temp_file.close()
 
         store = oauth2client.file.Storage(credential_path)
         credentials = store.get()
-        os.remove(credential_path)
         if not credentials or credentials.invalid:
             """flow = client.flow_from_clientsecrets(CLIENT_SECRET_FILE, SCOPES)
             flow.user_agent = APPLICATION_NAME
@@ -67,7 +61,17 @@ class GDrive(object):
                 credentials = tools.run(flow, store)
             print('Storing credentials to ' + credential_path)"""
             print ("Credentials ERROR")
-        return credentials
+        service = self._get_service(credentials)
+        return service
+
+    def _write_creds_file(self, creds_path, user_data):
+        cred_format = '{"_module": "oauth2client.client", "scopes": ["https://www.googleapis.com/auth/drive.file"], "token_expiry": "2016-07-10T19:13:36Z", "id_token": null, "access_token": "ya29.Ci8bA-BwrbAdvLayrfWAfw-p-SRWA9o9xgOEyGkp1np7h8ck4G_-kC-9-_lcmbFVIg", "token_uri": "https://accounts.google.com/o/oauth2/token", "invalid": false, "token_response": %s, "client_id": "426166184784-16qo5rpdm73cc4v6vmc9ueocmapkp51r.apps.googleusercontent.com", "token_info_uri": "https://www.googleapis.com/oauth2/v3/tokeninfo", "client_secret": "y_tSC4-99MqY0jhP958f39u7", "revoke_uri": "https://accounts.google.com/o/oauth2/revoke", "_class": "OAuth2Credentials", "refresh_token": "1/JzeOh3WXfyB8mfAG7glnxftw2k-QWQaQ7lOA-wI8Sps", "user_agent": "cctvmails"}' % user_data["gdrive"]
+        _file = open(creds_path, "w")
+        _file.write(cred_format)
+        _file.close()
+        _file = open(creds_path + ".id", "w")
+        _file.write(user_data["gdrive_parent"])
+        _file.close()
 
     def _get_service(self, credentials):
         http = credentials.authorize(httplib2.Http())
@@ -92,22 +96,54 @@ class GDrive(object):
                 parent = items[0]['id']
         return parent
 
-    def upload_image(self, user_data, img):
+    def create_dir(self, dir_name, drive_service, parent=""):
+        body = {'title': dir_name,
+                'mimeType': "application/vnd.google-apps.folder"}
+        if parent != "":
+            body['parents'] = [{'id': parent}]
+        new_folder = drive_service.files().insert(body=body).execute()
+        return new_folder['id']
+
+    def queue_image(self, user_data):
+        home_dir = os.path.expanduser('~')
+        images_dir = os.path.join(home_dir, '.cctvmails_temp', 'gdrive')
+        if not os.path.exists(images_dir):
+            os.makedirs(images_dir)
+        creds_path = os.path.join(images_dir, user_data["unique_email"] + ".json")
+        print (creds_path)
+        if not os.path.isfile(creds_path):
+            self._write_creds_file(creds_path, user_data)
+        i = 0
+
+        # Select imges to upload
+        selected_imgs = []
+        for detections in user_data["detected"].keys():
+            for occurences in user_data["detected"][detections]:
+                if occurences[0] not in selected_imgs:
+                    selected_imgs.append(occurences[0])
+        for img_no in selected_imgs:
+            img = user_data["imgs"][img_no]
+            img_name = "%s#%s#%s-%s.jpg" % (user_data["unique_email"], user_data["camera"], user_data["event_time"], str(i))
+            i = i+1
+            img_path = os.path.join(images_dir, img_name)
+            cv2.imwrite(img_path, img)
+            try:
+                self.gdrive_sock.send(img_name, zmq.NOBLOCK)
+            except Exception as e:
+                print ("GDrive push error: " + str(traceback.format_exc()))
+
+    def upload_image(self, img_path, img_name, service, parent=""):
         try:
-            credentials = self._get_credentials(user_data)
-            service = self._get_service(credentials)
-            body = {'title': os.path.basename(img),
+            body = {'title': img_name,
                     'mimeType': "image/jpg"}
 
-            date = datetime.now().strftime('%d-%m-%Y')
-            directory_structure = ['cctvmails', date, user_data["camera"]]
-            parent = self._get_parent_for_dir(directory_structure, service)
             if parent != "":
                 body['parents'] = [{'id': parent}]
             new_image = service.files().insert(convert=False, body=body,
-                                               media_body=img,
+                                               media_body=img_path,
                                                fields='mimeType,exportLinks').execute()
             if new_image:
-                print('Uploaded "%s" (%s)' % (img, new_image['mimeType']))
+                return True
         except Exception as e:
             print ("GDrive upload Error: " + str(traceback.format_exc()))
+            return False
